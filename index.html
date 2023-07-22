@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Leaf Disease Detection</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #ffffff;
+        }
+        .container_2 {
+            display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+        #formContainer {
+            margin-top: 50px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px #888888;
+        }
+        #resultContainer {
+            margin-top: 50px;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0px 0px 10px #888888;
+        }
+        #resultContainer h2 {
+            margin-top: 0px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-5">Leaf Disease Detection</h1>
+        <div id="formContainer">
+            <form enctype="multipart/form-data">
+                <div class="form-group">
+                    <label for="fileInput">Select an image file:</label>
+                    <input type="file" class="form-control-file" id="fileInput" accept=".jpg, .jpeg, .png">
+                </div>
+                <button type="button" class="btn btn-primary" onclick="predict()">Predict</button>
+            </form>
+        </div>
+
+        <div id="resultContainer" style="display:none">
+            <h2>Here are your results:</h2>
+            <div id="result">
+                <!-- The result will be displayed here -->
+            </div>
+        </div>
+    </div>
+
+    
+    <div class="container_2">
+        <button id="startButton">Start Camera</button>
+	<button id="captureButton" disabled>Capture Photo</button>
+	<br>
+	<video id="video" width="640" height="480" style="display:block"></video>
+	<br>
+	<canvas id="canvas" width="640" height="480" style="display:none"></canvas>
+
+	
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@0.2.7/dist/tf.min.js"></script>
+    <script>
+        function predict() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert("Please select an image file");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            fetch('http://localhost:8000/predict', {
+                method: 'POST',
+                body: formData
+            }).then(response => response.json())
+            .then(result => {
+                const resultContainer = document.getElementById('resultContainer');
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <p>Leaf Name: ${result.leaf_name}</p>
+                    <p>Disease Name: ${result.disease_name}</p>
+                    <p>Confidence: ${result.confidence.toFixed(2)}</p>
+                    <p>Pesticides: ${result.pesticides.join(", ")}</p>
+                    <p>Chemicals: ${result.chemicals.join(", ")}</p>
+                `;
+                resultContainer.style.display = 'block';
+            })
+            .catch(error => {
+                alert('Prediction failed. Please try again.');
+                console.error(error);
+            });
+        }
+        
+		const startButton = document.getElementById('startButton');
+		const captureButton = document.getElementById('captureButton');
+		const video = document.getElementById('video');
+		const canvas = document.getElementById('canvas');
+		const context = canvas.getContext('2d');
+		let stream;
+
+		// Start the camera when the user clicks the button
+		startButton.addEventListener('click', function() {
+			navigator.mediaDevices.getUserMedia({ video: true })
+				.then(function(mediaStream) {
+					stream = mediaStream;
+					video.srcObject = stream;
+					video.play();
+				})
+				.catch(function(error) {
+					console.log("Unable to access the camera: " + error);
+				});
+
+			// Enable the capture button once the camera has started
+			video.addEventListener('canplay', function() {
+				startButton.disabled = true;
+				captureButton.disabled = false;
+			});
+		});
+
+		// Capture a photo and display it on the website
+		captureButton.addEventListener('click', function() {
+			context.drawImage(video, 0, 0, canvas.width, canvas.height);
+			stream.getTracks().forEach(track => track.stop());
+			video.style.display = "none";
+			captureButton.style.display = "none";
+			canvas.style.display = "block";
+
+			// Save the captured photo
+			let link = document.createElement('a');
+			link.download = 'photo.png';
+			link.href = canvas.toDataURL("image/png").replace(/^data:image\/[^;]/, 'data:application/octet-stream');
+			link.click();
+		});
+	
+    </script>
+</body>
+</html>
